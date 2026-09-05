@@ -10,6 +10,7 @@ import (
 
 func TestStoreInit(t *testing.T) {
 	store := NewStore();
+	defer store.Close(); // i believe this cleans up the background thread
 
 	if(store == nil) {
 		t.Fatal("Expected a pointer of NewStore but got nil");
@@ -21,8 +22,10 @@ func TestStoreInit(t *testing.T) {
 
 func TestStoreSetAndGet(t *testing.T) {
 	store := NewStore();
+	defer store.Close();
 
 	store.Set("example_uuid_1", "Harshit");
+	store.Set("example_uuid_1", "Harshit_The_Great"); // explicit override check?
 
 	// these are basically test cases for our store?
 	tests := []struct {
@@ -32,9 +35,9 @@ func TestStoreSetAndGet(t *testing.T) {
 		wantedExists bool
 	}{
 		{
-			name: 		  "Existing key",
+			name: 		  "Existing key with explicitly updated value",
 			key:  		  "example_uuid_1",
-			wantedVal:    "Harshit",
+			wantedVal:    "Harshit_The_Great",
 			wantedExists: true,
 		},
 		{
@@ -45,12 +48,19 @@ func TestStoreSetAndGet(t *testing.T) {
 		},
 	}
 
+	/*
+	formaters:
+	%v -> default value format that prints the natural value
+	%q -> double quoted string 
+	%s -> raw string
+	%T -> prints the go type instead of value
+	*/
 	for _, tCases := range tests {
 		t.Run(tCases.name, func(t *testing.T) {
 			val, exists := store.Get(tCases.key);
 
 			if val != tCases.wantedVal {
-				t.Errorf("Get() val: %v, wanted: %v", val, tCases.wantedVal);
+				t.Errorf("Get() val: %q, wanted: %q", val, tCases.wantedVal);
 			}
 			if exists != tCases.wantedExists {
 				t.Errorf("Get() exists: %v, wanted: %v", exists, tCases.wantedExists);
@@ -61,6 +71,7 @@ func TestStoreSetAndGet(t *testing.T) {
 
 func TestStoreDelete(t *testing.T) {
 	store := NewStore();
+	defer store.Close();
 
 	store.Set("example_uuid_3", "Hi");
 
