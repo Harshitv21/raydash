@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 );
 
 func TestStoreConcurrency(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+	
 	var wg sync.WaitGroup;
 
 	// 100 concurrent writers

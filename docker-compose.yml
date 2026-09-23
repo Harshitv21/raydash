@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    command: postgres -c log_timezone=Asia/Kolkata -c timezone=Asia/Kolkata
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: raydash
+      POSTGRES_USER: raydash
+      POSTGRES_PASSWORD: raydash
+    ports:
+      - "5432:5432"
+    volumes:
+      - raydash-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raydash -d raydash"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  raydash:
+    build: .
+    restart: unless-stopped
+    environment:
+      RAYDASH_PORT: "13203"
+      RAYDASH_EXPIRY_INTERVAL_MS: "100"
+      RAYDASH_POSTGRES_DSN: "postgres://raydash:raydash@postgres:5432/raydash?sslmode=disable"
+      RAYDASH_SNAPSHOT_INTERVAL_SECONDS: "30"
+      RAYDASH_MAX_KEYS: "0"
+      # RAYDASH_AUTH_TOKEN: "changeme"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "13203:13203"
+    # main.go budgets about 8s to drain connections then a final snapshot on SIGTERM
+    # compose default is 10s before SIGKILL so 15s sounds about right
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "13203"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  raydash-pgdata:

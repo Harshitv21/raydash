@@ -6,10 +6,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 );
 
 func TestStoreInit(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
 	defer store.Close(); // i believe this cleans up the background thread
 
 	if(store == nil) {
@@ -21,7 +24,9 @@ func TestStoreInit(t *testing.T) {
 }
 
 func TestStoreSetAndGet(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
 	defer store.Close();
 
 	store.Set("example_uuid_1", "Harshit");
@@ -70,7 +75,9 @@ func TestStoreSetAndGet(t *testing.T) {
 }
 
 func TestStoreDelete(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
 	defer store.Close();
 
 	store.Set("example_uuid_3", "Hi");
@@ -91,7 +98,8 @@ func TestStoreDelete(t *testing.T) {
 }
 
 func TestStoreIterate(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
 
 	store.Set("example_uuid_1", "Hi");
 	store.Set("example_uuid_2", "Harshit");

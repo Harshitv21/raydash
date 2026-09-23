@@ -6,7 +6,9 @@ import (
 )
 
 func TestStoreTTLAndCodes(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
 	defer store.Close();
 
 	store.Set("no_expiry", "forever");
@@ -59,7 +61,9 @@ func TestStoreTTLAndCodes(t *testing.T) {
 
 // checks if get removes the expired key or nah
 func TestLazyExpiration(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
 	defer store.Close();
 
 	store.Set("lazy_key", "evict_me!");
@@ -99,7 +103,9 @@ func TestActiveExpiration(t *testing.T) {
 }
 
 func TestSnapshotFiltersExpiredKeys(t *testing.T) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
 	defer store.Close();
 
 	store.Set("valid", "keep");

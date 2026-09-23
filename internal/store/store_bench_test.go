@@ -3,11 +3,13 @@ package store
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 // measuring concurrent write performance
 func BenchmarkParallelSet(b *testing.B) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
 
 	b.ResetTimer(); // excluding the setup time above
 	b.RunParallel(func(pb *testing.PB) {
@@ -21,7 +23,9 @@ func BenchmarkParallelSet(b *testing.B) {
 }
 
 func BenchmarkParallelGet(b *testing.B) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
 	store.Set("example_uuid_1", "Harshit");
 
 	b.ResetTimer();
@@ -34,7 +38,8 @@ func BenchmarkParallelGet(b *testing.B) {
 
 // kinda like a real world working with 90% read & 10% write
 func BenchmarkParallelMixed(b *testing.B) {
-	store := NewStore();
+	expiryIntervalMs := 100;
+	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
 
 	b.ResetTimer();
 	b.RunParallel(func(pb *testing.PB) {
