@@ -22,10 +22,10 @@ const (
 	Closing a connection if client hasn't sent anything in this long. this prevents a client that 
 	opens a socket and never talks from holding a goroutine+connection open forever.
 	*/
-	idleTimeout = 5 * time.Minute
+	idleTimeout = 5 * time.Minute;
 
 	// New connections are rejected immediately post limit instead of piling up unboundedly
-	maxConnections = 1000
+	maxConnections = 1000;
 )
 
 type Server struct {
