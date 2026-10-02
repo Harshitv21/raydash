@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,17 @@ TCP connections to a running Raydash server and hammer it with SET/GET as fast a
 duration, then report how many operations got through. There's no assertion here about correctness
 (that's what actually running the server and eyeballing results is for). Simply stated:
 "just how many ops/sec, and did anything error out or not".
+
+Per-operation latency tracking: get a real number for p99. p99 latency is a percentile metric used to
+measure the response time of a system or API, revealing how the slowest outlier requests perform.
+In simple terms, p99 latency means 99% of all requests finish in this amount of time or less while the
+slowest 1% take longer. Example, if p99 is 69ms, 99 out of all 100 requests complete under 69ms.
+
+Each worker times its own SET and GET calls and keeps the results in a plain local slice with no locking
+at all while the "hot" loop is running, since adding synchronization overhead to the exact thing we are
+trying to measure would poison the measurement. Every worker merges its local slice into one shared slice
+a SINGLE time, right when it finishes. That's so many lock acquisitions total for the whole run, not one
+per operation so not distorting anything.
 */
 func main() {
 	/*
@@ -58,6 +70,14 @@ func main() {
 	var wg sync.WaitGroup;
 
 	/*
+	latencyMut guards the 2 shared slices below. The ONLY thing it protects is the one-time append each
+	worker does when it finishes, never anything inside the hot loop.
+	*/
+	var latencyMut sync.Mutex;
+	var setLatencies []time.Duration;
+	var getLatencies []time.Duration;
+
+	/*
 	stop is closed (not sent-to) when the test duration elapses. Closing a channel is a broadcast signal
 	every goroutine selecting on it wakes up for simultaneously, which is exactly the "everyone stops now"
 	shape we want, as opposed to a normal channel send which only one receiver would get.
@@ -86,6 +106,27 @@ func main() {
 				return;
 			}
 			defer conn.Close();
+
+			/*
+			A worker's own private latency bins written to freely with no locks since no other goroutine
+			ever touches these 2 specific slices.
+			*/
+			localSetLatencies := make([]time.Duration, 0, 4096);
+			localGetLatencies := make([]time.Duration, 0, 4096);
+
+			/*
+			merges this worker's timings into the shared totals exactly once, when the worker is about
+			to exit (could be because of test duration elapsed or an error ending worker's loop early)
+			defferred so it still runs on every exit path not just the clean one.
+			*/
+			defer func() {
+				latencyMut.Lock();
+
+				setLatencies = append(setLatencies, localSetLatencies...);
+				getLatencies = append(getLatencies, localGetLatencies...);
+
+				latencyMut.Unlock();
+			}();
 
 			reader := bufio.NewReader(conn);
 
@@ -124,20 +165,29 @@ func main() {
 				*/
 				key := fmt.Sprintf("loadtest:%d:%d", workerID, rng.Intn(1000));
 
+				setStart := time.Now();
 				if err := doSet(conn, reader, key, value); err != nil {
 					// fmt.Printf("worker %d SET failed: %v\n", workerID, err);
 					
 					atomic.AddInt64(&totalErrors, 1);
 					return; // even a single error ends this worker's loop rather than retrying. This sets the benchmarks standard high!
 				}
+				/*
+				only successful operations get timed. A failed call doesn't represent real service latency,
+				it represents a broken connection which would just pollute the percentiles.
+				*/
+				localSetLatencies = append(localSetLatencies, time.Since(setStart));
 				atomic.AddInt64(&totalOperations, 1);
 
+				getStart := time.Now();
 				if err := doGet(conn, reader, key); err != nil {
 					// fmt.Printf("worker %d GET failed: %v\n", workerID, err);
 					
 					atomic.AddInt64(&totalErrors, 1);
 					return;
 				}
+				// same shit
+				localGetLatencies = append(localGetLatencies, time.Since(getStart));
 				atomic.AddInt64(&totalOperations, 1);
 			}
 		}(i)
@@ -166,6 +216,21 @@ func main() {
 	fmt.Printf("Total operations (SET + GET combined): %d\n", operations);
 	fmt.Printf("Errors combined in all operations: %d\n", errorsDuringOperations);
 	fmt.Printf("Throughput: %.0f ops/sec\n", float64(operations) / elapsed.Seconds());
+
+
+	fmt.Printf("\n=== latency (successful operations only) ===\n");
+	printLatencyStats("SET", setLatencies);
+	printLatencyStats("GET", getLatencies);
+
+	/*
+	A fresh combined slice deliberately not reusing any of the existing latencies array, since append()
+	below could otherwise silently overwrite data still referenced elsewhere depending on capacity.
+	*/
+	combined := make([]time.Duration, 0, len(setLatencies) + len(getLatencies));
+	combined = append(combined, setLatencies...);
+	combined = append(combined, getLatencies...);
+
+	printLatencyStats("COMBINED", combined);
 
 	/*
 	Smol pause before the process actually exits giving any still unwinding goroutines and buffered
@@ -254,4 +319,39 @@ func doGet(conn net.Conn, reader *bufio.Reader, key string) error {
 	if _, err := reader.ReadString('\n'); err != nil { return err; }
 	
 	return nil;
+}
+
+/*
+printLatencyStats() sorts a set of recorded durations and reports the values that actually matter for
+writing for a claim worthy enough. p50 (typical case), p95 and p99 (the tail like what our slowest real
+request look like), plus the outright min/max for sanity checking the run.
+*/
+func printLatencyStats(label string, latencies []time.Duration) {
+	if(len(latencies) == 0) {
+		fmt.Printf("%s latency: no successful samples :(\n", label);
+		return;
+	}
+
+	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] });
+
+	/*
+	simple nearest-rank percentile: sort ascending, then the value at index (p * n) IS the pth percentile
+	by definition, no interpolation between ranks this is exactly the kind of thing we need yo.
+	*/
+	percentile := func(p float64) time.Duration {
+		idx := int(p * float64(len(latencies)));
+		if(idx >= len(latencies)) { idx = len(latencies) - 1; }
+		return latencies[idx];
+	}
+
+	fmt.Printf(
+		"%-8s min=%-10s p50=%-10s p95=%-10s p99=%-10s max=%-10s (n=%d)\n",
+		label,
+		latencies[0],
+		percentile(0.50),
+		percentile(0.95),
+		percentile(0.99),
+		latencies[len(latencies) - 1],
+		len(latencies),
+	);
 }
