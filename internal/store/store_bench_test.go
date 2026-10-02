@@ -11,6 +11,8 @@ func BenchmarkParallelSet(b *testing.B) {
 	expiryIntervalMs := 100;
 	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
 
+	defer store.Close(); // prevent leaking
+
 	b.ResetTimer(); // excluding the setup time above
 	b.RunParallel(func(pb *testing.PB) {
 		i := 0;
@@ -22,17 +24,18 @@ func BenchmarkParallelSet(b *testing.B) {
 	})
 }
 
+// concurrent get's
 func BenchmarkParallelGet(b *testing.B) {
 	expiryIntervalMs := 100;
 	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
+	defer store.Close(); // prevent leaking
 
 	store.Set("example_uuid_1", "Harshit");
 
 	b.ResetTimer();
 	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			store.Get("example_uuid");
-		}
+		for pb.Next() { store.Get("example_uuid_1"); }
 	})
 }
 
@@ -40,6 +43,8 @@ func BenchmarkParallelGet(b *testing.B) {
 func BenchmarkParallelMixed(b *testing.B) {
 	expiryIntervalMs := 100;
 	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
+
+	defer store.Close(); // prevent leaking
 
 	b.ResetTimer();
 	b.RunParallel(func(pb *testing.PB) {
