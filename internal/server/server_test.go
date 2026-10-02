@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -12,22 +13,25 @@ import (
 	"internal/store"
 )
 
-// ensures 50 concurrent workers can read/write/delete safely
+// Ensures 50 concurrent workers can read/write/delete safely
 func TestConcurrentHammering(t *testing.T) {
+	auth := "";
 	expiryIntervalMs := 100;
 	store := store.NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
 
-	// bind to port ":0" which tells the OS to assign a random, unallocated free port dynamically
-	// note that this is ONE single port for the entire server
+	/*
+	Bind to port ":0" which tells the OS to assign a random, unallocated free port dynamically
+	note that this is ONE single port for the entire server.
+	*/
 	listener, err := net.Listen("tcp", "127.0.0.1:0");
 	if(err != nil) { t.Fatalf("Failed to bind random port: %v", err); }
 
 	addr := listener.Addr().String();
+
 	// clean teardown shutdown the socket pipeline listener
 	listener.Close();
+	
 	// boot up the server engine in the background
-
-	auth := "";
 	serv := NewServer(addr, store, auth);
 
 	// boot the server officially using serv.Start() but on the background
@@ -35,11 +39,15 @@ func TestConcurrentHammering(t *testing.T) {
 		if err := serv.Start(); err != nil { return; }	
 	}();
 
-	// ensuring the background server just has a teeny tiny time to breath and establish it's listener loop
+	/*
+	Ensuring the background server just has a teeny tiny time to breath and establish it's listener
+	loop.
+	*/
 	time.Sleep(20 * time.Millisecond);
 
-	// firing up 50 concurrent workers hammering the server
-	var wg sync.WaitGroup; // sync.WaitGroup is an atomic safe integer counter
+	/* firing up 50 concurrent workers hammering the server */
+	// sync.WaitGroup is an atomic safe integer counter
+	var wg sync.WaitGroup;
 	workers := 50;
 	operationsPerWorker := 50;
 
@@ -59,27 +67,31 @@ func TestConcurrentHammering(t *testing.T) {
 
 			reader := bufio.NewReader(conn);
 
-			// intentionally sharing key across every 5th worker to force race scenarios
-			// 0,5,10,15 key_0
-			// 1,6,11,16 key_1 and so on till key_4
+			/*
+			Intentionally sharing key across every 5th worker to force race scenarios.
+			0,5,10,15 key_0
+			1,6,11,16 key_1 and so on till key_4
+			*/
 			sharedKey := fmt.Sprintf("key_%d", workerID % 5);
 
 			for j := 0; j < operationsPerWorker; j++ {
-				// SET
-				setCmd := fmt.Sprintf("SET %s val_%d_%d\r\n", sharedKey, workerID, j);
+				// SET (binary safe format)
+				elements := []string{strconv.Itoa(workerID), strconv.Itoa(j)};
+				combinedStr := strings.Join(elements, "_");
+				
+				setCmd := fmt.Sprintf("SET %s %d\r\n%s\r\n", sharedKey, len(combinedStr), combinedStr);
 				_, _ = conn.Write([]byte(setCmd));
+				
 				output, _ := reader.ReadString('\n');
-				if(!strings.Contains(output, "+OK")) {
-					t.Errorf("Unexpected SET response: %s", output);
-				}
+
+				if(!strings.Contains(output, "+OK")) { t.Errorf("Unexpected SET response: %s", output); }
 
 				// GET
 				getCmd := fmt.Sprintf("GET %s\r\n", sharedKey);
 				_, _ = conn.Write([]byte(getCmd));
 				output, _ = reader.ReadString('\n');
-				if(strings.HasPrefix(output, "$") && output != "$-1") {
-					_, _ = reader.ReadString('\n');
-				}
+
+				if(strings.HasPrefix(output, "$") && output != "$-1") { _, _ = reader.ReadString('\n'); }
 
 				// EXISTS
 				existsCmd := fmt.Sprintf("EXISTS %s\r\n", sharedKey);
@@ -87,8 +99,8 @@ func TestConcurrentHammering(t *testing.T) {
 				_, _ = reader.ReadString('\n');
 			}
 			/*
-			so 50 workers, 50 iteration for each one of them and then 3 commands in each iteration that makes around,
-			50 * 50 * 3 = 7500 db operations every single second
+			So 50 workers, 50 iteration for each one of them and then 3 commands in each iteration
+			that makes around, 50 * 50 * 3 = 7500 db operations every single second.
 			*/
 		}(i)
 	}
