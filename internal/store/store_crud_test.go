@@ -101,6 +101,8 @@ func TestStoreIterate(t *testing.T) {
 	expiryIntervalMs := 100;
 	store := NewStore(time.Duration(expiryIntervalMs) * time.Millisecond, 0);
 
+	defer store.Close(); // prevent leaking
+
 	store.Set("example_uuid_1", "Hi");
 	store.Set("example_uuid_2", "Harshit");
 	store.Set("example_uuid_3", "How");
