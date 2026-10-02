@@ -11,9 +11,17 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	if err := godotenv.Load("../.env"); err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("[SERVER:MAIN] Error loading .env file: %v", err);
+		}
+		log.Printf("[SERVER:MAIN] Note: No .env file loaded (%v). Relying on system/Docker environment.", err);
+	}
+
 	port := getEnv("RAYDASH_PORT", "13203");
 	expiryIntervalMs := getEnvInt("RAYDASH_EXPIRY_INTERVAL_MS", 100);
 	snapshotInteralSec := getEnvInt("RAYDASH_SNAPSHOT_INTERVAL_SECONDS", 30);
