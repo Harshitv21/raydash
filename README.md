@@ -467,7 +467,7 @@ You are welcome to add suitable new features or enhance existing ones 😃
 
 ## License
 
-This project is licensed under the **MIT License**. See the [License](./LICENSE.md)
+This project is licensed under the **MIT License**. See the [License](./LICENSE)
 file for more details.
 
 ## Links
