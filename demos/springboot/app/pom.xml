@@ -72,10 +72,12 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Source: https://mvnrepository.com/artifact/app.raydash/raydash-client-java -->
 		<dependency>
 			<groupId>app.raydash</groupId>
 			<artifactId>raydash-client-java</artifactId>
 			<version>1.0.0</version>
+			<scope>compile</scope>
 		</dependency>
 	</dependencies>
 
