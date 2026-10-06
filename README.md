@@ -1,6 +1,6 @@
 # README
 
-Raydash is a self-deployable mini cache built in Go, featuring Springboot support
+Raydash is a self-deployable mini cache built in Go, featuring Spring Boot support
 via a custom written java client: [raydash-client-java](https://github.com/Harshitv21/raydash-client-java/).
 
 I built this project for a couple of reasons, but the biggest one is that Redis
@@ -8,7 +8,7 @@ kept threatening to delete the database I created for my other project, [staycul
 It's an all-in-one media tracker for games, movies, tv shows & anime. Because it
 is currently a work in progress and I can't work on it full-time, the cache occasionally
 sits inactive. Whenever that happens Redis sends me a threat and has wiped my database
-a couple of times which is quite frustating honestly.
+a couple of times which is quite frustrating honestly.
 Now the "quick fix" for this problem was simple, whenever an email arrived I manually
 hit an endpoint via the [Swagger OpenAPI docs](https://api.staycultured.app) to
 keep it alive but man I couldn't be bothered with this shit.
@@ -22,7 +22,7 @@ scenarios...). Upgrading means paying monthly fees of _5ish$_ dollars or somethi
 for _slightly_ bigger limits.
 
 Since I am already paying a cloud provider for deployments anyways, I figured why
-not host my own cache? or even better why not built my own cache? I get full control
+not host my own cache? or even better why not build my own cache? I get full control
 over my data and save some cash too! Plus I get a fantastic excuse to learn **Go**
 and build a cool project with it!
 
@@ -356,7 +356,7 @@ Quick _obvious_ takeaways:
 ### Spring Boot
 
 - Start the raydash server using `docker-compose.yml`
-- Run the springboot application from `demos/springboot/app/src/main/java/raydash/demo/app/AppApplication.java`
+- Run the Spring Boot application from `demos/springboot/app/src/main/java/raydash/demo/app/AppApplication.java`
 - `application.properties` is loaded with basic server configuration already
 - In the root of this `app` you can find a `bruno` folder containing a basic `GET`
   endpoint for fetching user by id, double hit that endpoint (you'll need the `bruno`
