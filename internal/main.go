@@ -32,7 +32,7 @@ func main() {
 	if(authToken != "") {
 		log.Printf("[SERVER:MAIN] AUTH enabled - clients must send AUTH before any other command");
 	} else {
-		log.Printf("[SERVER:MAIN] AUTH disabled enabled - RAYDASH_AUTH_TOKEN not set, running with no authentication");
+		log.Printf("[SERVER:MAIN] AUTH disabled - RAYDASH_AUTH_TOKEN not set, running with no authentication");
 	}
 
 	if(maxKeys > 0) {
@@ -102,7 +102,7 @@ func main() {
 	
 	// For OS
 	case sig := <- sigCh:
-		log.Printf("[SERVER:MAIN] Receoved %s, shutting down gracefully", sig);
+		log.Printf("[SERVER:MAIN] Received %s, shutting down gracefully", sig);
 		
 		/*
 		No cruel instant termination we give in flight connections (refers to our Java client) a window
@@ -115,6 +115,16 @@ func main() {
 
 		if err := serv.Shutdown(ctx); err != nil {
 			log.Printf("[SERVER:MAIN] Shutdown did not complete cleanly: %v", err);
+		}
+
+		// final snapshot, only after connections have drained
+		if persister != nil {
+			close(snapshotStopCh);
+			if err := persister.Save(myStore.SnapshotEntries()); err != nil {
+				log.Printf("[SERVER:MAIN] Final snapshot save failed: %v", err);
+			} else {
+				log.Printf("[SERVER:MAIN] Final snapshot saved");
+			}
 		}
 	}
 

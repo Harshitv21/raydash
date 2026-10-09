@@ -206,7 +206,7 @@ func (p *PostgresPersister) Load() ([]store.SnapshotEntry, error) {
 		*/
 		var expiresAt sql.NullTime;
 
-		if err := rows.Scan(&e.Key, &e.Value, &expiresAt); err != nil {
+		if err := rows.Scan(&e.Key, &e.Value, &expiresAt, &e.InsertedAt); err != nil {
 			return nil, fmt.Errorf("[SERVER:DB] Scan snapshot row: %w", err);
 		}
 
